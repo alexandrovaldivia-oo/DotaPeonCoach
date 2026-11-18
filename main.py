@@ -122,7 +122,7 @@ class PeonCerebro:
                         remove_silence=True,
                         api_name="/basic_tts"
                     )
-                    ruta_generada = resultado[0] if isinstance(resultado, (list, tuple)) else resultado
+                    ruta_generada = next(iter(resultado)) if isinstance(resultado, (list, tuple)) else resultado
                     if ruta_generada and os.path.exists(ruta_generada):
                         archivo_temp = ruta_generada
                         exito_clon = True
@@ -188,7 +188,9 @@ class PeonCerebro:
                         r = requests.post(url, headers=headers, json=payload, timeout=7)
                         if r.status_code == 200:
                             data = r.json()
-                            resp_texto = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                            primer_cand = next(iter(data.get("candidates", [])))
+                            primera_parte = next(iter(primer_cand.get("content", {}).get("parts", [])))
+                            resp_texto = primera_parte.get("text", "").strip()
                             break
                     except:
                         continue
@@ -233,6 +235,3 @@ class PeonCerebro:
         items_actuales = []
         nuevo_item_comprado = None
         for slot, val in items.items():
-            if slot.startswith("slot") and isinstance(val, dict):
-                i_name = val.get("name", "empty")
-                if i_name != "empty":
