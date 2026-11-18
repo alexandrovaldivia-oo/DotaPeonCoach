@@ -1,0 +1,6 @@
+PyQt6
+requests
+edge-tts
+pygame
+pyinstaller
+gradio_client
