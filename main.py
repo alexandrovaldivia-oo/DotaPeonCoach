@@ -223,7 +223,6 @@ class PeonApp:
                 pass
 
         threading.Thread(target=_tarea_audio, daemon=True).start()
-
     def consultar_ia(self, situacion, color="#00FFAA"):
         if not self.api_key or self.ocupado:
             return
@@ -234,3 +233,184 @@ class PeonApp:
                 memoria = " | ".join(self.historial_frases) if self.historial_frases else "ninguna"
                 rival_info = f"Tu rival directo en linea es {self.rival_linea}." if self.rival_linea else ""
                 
+                p1 = "Eres un Peon Orco renegon, sarcastico y explotado de Warcraft 3 que hace de companero y coach inmortal de Dota 2. "
+                p2 = "Hablas con jerga dotera peruana/latina y puedes soltar lisuras o groserias graciosas (como carajo, mierda, huevadas, manco) "
+                p3 = "cuando el jugador compra un item absurdo, muere por tonto o hace una jugada epica. "
+                p4 = "REGLA OBLIGATORIA: Di SIEMPRE los nombres de habilidades y objetos en espanol natural de Dota, NUNCA nombres de codigo en ingles. "
+                prompt = f"{p1}{p2}{p3}{p4}No repitas: ({memoria}). {rival_info} Responde en maximo 22 palabras, directo y sin saludos: {situacion}"
+
+                parte_txt = dict(text=prompt)
+                contenido_dict = dict(parts=list((parte_txt,)))
+                gen_cfg = dict(temperature=0.95, maxOutputTokens=90)
+                seg_lista = list((
+                    dict(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+                    dict(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+                    dict(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+                    dict(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE")
+                ))
+                payload = dict(contents=list((contenido_dict,)), generationConfig=gen_cfg, safetySettings=seg_lista)
+
+                headers = {"Content-Type": "application/json", "x-goog-api-key": self.api_key}
+                dominio = "generativelanguage" + ".googleapis.com"
+                
+                resp_texto = None
+                for modelo in ("gemini-3.5-flash-lite", "gemini-3.8-flash"):
+                    try:
+                        url = f"https://{dominio}/v1beta/models/{modelo}:generateContent"
+                        r = requests.post(url, headers=headers, json=payload, timeout=7)
+                        if r.status_code == 200:
+                            data = r.json()
+                            cands = data.get("candidates", list())
+                            if cands:
+                                primer_cand = cands.pop(0)
+                                partes = primer_cand.get("content", dict()).get("parts", list())
+                                if partes:
+                                    primera_parte = partes.pop(0)
+                                    resp_texto = primera_parte.get("text", "").strip()
+                                    break
+                    except:
+                        continue
+
+                if resp_texto:
+                    self.historial_frases.append(resp_texto)
+                    if len(self.historial_frases) > 8:
+                        self.historial_frases.pop(0)
+                    self.actualizar_texto(resp_texto, color)
+                    self.hablar(resp_texto)
+            finally:
+                self.ocupado = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def procesar_datos_dota(self, datos):
+        self.actualizar_estado("🟢 Conectado a Dota 2")
+        hero = datos.get("hero", dict())
+        player = datos.get("player", dict())
+        mapa = datos.get("map", dict())
+        items = datos.get("items", dict())
+        abilities = datos.get("abilities", dict())
+
+        if not hero or not hero.get("level"):
+            return
+
+        heroe = hero.get("name", "").replace("npc_dota_hero_", "")
+        nivel = int(hero.get("level", 0))
+        oro = int(player.get("gold", 0))
+        kills = int(player.get("kills", 0))
+        deaths = int(player.get("deaths", 0))
+        assists = int(player.get("assists", 0))
+        racha_actual = int(player.get("kill_streak", 0))
+        tiempo_seg = int(mapa.get("clock_time", 0))
+        tiempo_min = tiempo_seg // 60
+
+        skills_lista = list()
+        for k, v in abilities.items():
+            if isinstance(v, dict) and v.get("level", 0) > 0:
+                s_name = v.get("name", "").replace(f"{heroe}_", "")
+                skills_lista.append(f"{s_name} nivel {v.get('level')}")
+        skills_txt = ", ".join(skills_lista) if skills_lista else "ninguna"
+
+        items_actuales = list()
+        nuevo_item_comprado = None
+        for slot, val in items.items():
+            es_slot = str(slot).startswith("slot")
+            if es_slot and isinstance(val, dict):
+                i_name = str(val.get("name", "empty"))
+                if i_name != "empty":
+                    limpio = i_name.replace("item_", "")
+                    items_actuales.append(limpio)
+                    if limpio not in self.items_conocidos and tiempo_seg > 15:
+                        nuevo_item_comprado = limpio
+                    self.items_conocidos.add(limpio)
+        items_txt = ", ".join(items_actuales) if items_actuales else "ninguno"
+
+        if nuevo_item_comprado:
+            self.consultar_ia(
+                f"El jugador con {heroe} acaba de comprar '{nuevo_item_comprado}' (sus otros items son: {items_txt}). "
+                f"Si ese item NO tiene sentido o es absurdo para {heroe}, reniega fuerte y burlate con lisuras. Si es buen item, apruebalo rezongando.",
+                "#FFAA00"
+            )
+            return
+
+        if kills > self.ultimos_kills:
+            ahora = time.time()
+            if ahora - self.tiempo_ultimo_kill <= 18:
+                self.racha_multikill += 1
+            else:
+                self.racha_multikill = 1
+            self.tiempo_ultimo_kill = ahora
+            self.ultimos_kills = kills
+
+            if self.racha_multikill == 2:
+                self.consultar_ia(f"El jugador con {heroe} acaba de hacerse un DOBLE KILL! Celebralo como un peon orco emocionado y grosero.", "#00FF66")
+            elif self.racha_multikill == 3:
+                self.consultar_ia(f"TRIPLE KILL con {heroe}! Grita de emocion como peon orco!", "#00FF66")
+            elif self.racha_multikill >= 4:
+                self.consultar_ia(f"ULTRA KILL o RAMPAGE con {heroe}! Vuelvete loco celebrando la masacre!", "#00FF66")
+            elif racha_actual >= 3:
+                self.consultar_ia(f"El jugador lleva una racha de {racha_actual} asesinatos seguidos sin morir con {heroe}! Alabalo con humor orco.", "#00FF66")
+            else:
+                self.consultar_ia(f"El jugador con {heroe} mato a un enemigo (KDA {kills}/{deaths}/{assists}). Haz un comentario burlon contra el enemigo muerto.", "#00FF66")
+            return
+
+        if deaths > self.ultimas_muertes:
+            self.ultimas_muertes = deaths
+            self.racha_multikill = 0
+            self.consultar_ia(f"El jugador con {heroe} acaba de morir (lleva {deaths} muertes). Reganalo y burlate de el como peon orco renegon.", "#FF5555")
+            return
+
+        if tiempo_seg > 0 and ((tiempo_seg + 30) % 420 == 0) and (self.aviso_sabiduria != tiempo_min):
+            self.aviso_sabiduria = tiempo_min
+            msg = "¡Jefe! En 30 segundos sale la runa de sabiduría, muévete antes que se la roben."
+            self.actualizar_texto(msg, "#FF66FF")
+            self.hablar(msg)
+            return
+
+        if tiempo_min == 20 and not self.aviso_tormentor:
+            self.aviso_tormentor = True
+            msg = "¡Minuto 20! Ya salió el Tormentor, junta a los mancos de tu equipo para tumbarlo."
+            self.actualizar_texto(msg, "#FF66FF")
+            self.hablar(msg)
+            return
+
+        if nivel > self.ultimo_nivel:
+            self.ultimo_nivel = nivel
+            self.consultar_ia(
+                f"Subi a nivel {nivel} con {heroe}. Habilidades actuales: {skills_txt}. "
+                f"Dime que habilidad debo subir ahora en espanol claro, pero rezongando como peon.",
+                "#55FFFF"
+            )
+            return
+
+        if tiempo_min > 0 and (tiempo_min % 3 == 0) and (tiempo_min != self.ultimo_minuto_check):
+            self.ultimo_minuto_check = tiempo_min
+            self.consultar_ia(
+                f"Minuto {tiempo_min} con {heroe}, oro {oro}, items: {items_txt}. "
+                f"Dame un consejo corto de que item armar o que hacer en el mapa, con actitud de peon orco.",
+                "#55FFFF"
+            )
+
+def iniciar_servidor(app_peon):
+    class DotaHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length).decode('utf-8')
+            self.send_response(200)
+            self.end_headers()
+            try:
+                datos = json.loads(body)
+                app_peon.procesar_datos_dota(datos)
+            except:
+                pass
+        def log_message(self, format, *args):
+            return
+
+    server = HTTPServer(('127.0.0.1', 4123), DotaHandler)
+    server.serve_forever()
+
+if __name__ == "__main__":
+    auto_configurar_dota()
+    root = tk.Tk()
+    app = PeonApp(root)
+    threading.Thread(target=iniciar_servidor, args=(app,), daemon=True).start()
+    root.mainloop()
