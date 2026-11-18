@@ -23,12 +23,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Empaquetar en un solo EXE
+      - name: Empaquetar carpeta portable sin bloqueos
       run: |
-        pyinstaller --noconsole --onefile --add-data "voz_peon.wav;." --name "DotaPeonCoach" main.py
+        pyinstaller --onedir --add-data "voz_peon.wav;." --name "DotaPeonCoach" main.py
 
-    - name: Subir archivo EXE listo para descargar
+    - name: Subir programa listo para descargar
       uses: actions/upload-artifact@v4
       with:
         name: DotaPeonCoach-Windows
-        path: dist/DotaPeonCoach.exe
+        path: dist/DotaPeonCoach
+
