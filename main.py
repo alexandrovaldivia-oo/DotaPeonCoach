@@ -23,13 +23,13 @@ RUTA_VOZ_PEON = obtener_ruta_recurso("voz_peon.wav")
 ARCHIVO_CONFIG = os.path.join(os.path.expanduser("~"), "dota_peon_config.json")
 
 def auto_configurar_dota():
-    letras = [f"{d}:\\" for d in string.ascii_uppercase if os.path.exists(f"{d}:\\")]
-    rutas_posibles = [
+    letras = tuple(f"{d}:\\" for d in string.ascii_uppercase if os.path.exists(f"{d}:\\"))
+    rutas_posibles = (
         r"Program Files (x86)\Steam\steamapps\common\dota 2 beta\game\dota\cfg",
         r"Program Files\Steam\steamapps\common\dota 2 beta\game\dota\cfg",
         r"SteamLibrary\steamapps\common\dota 2 beta\game\dota\cfg",
         r"Steam\steamapps\common\dota 2 beta\game\dota\cfg"
-    ]
+    )
     ip_local = "127." + "0.0.1:4123/"
     contenido_cfg = f'''"Dota 2 Peon Coach"
 {{
@@ -78,7 +78,7 @@ class PeonApp:
         self.ultimas_muertes = 0
         self.tiempo_ultimo_kill = 0
         self.racha_multikill = 0
-        self.historial_frases = []
+        self.historial_frases = list()
         self.ocupado = False
         self.cliente_clonacion = None
         self.pos_x = 0
@@ -111,7 +111,6 @@ class PeonApp:
         self.root.attributes("-alpha", 0.92)
         self.root.configure(bg="#121614", highlightbackground="#4caf50", highlightthickness=2)
 
-        # Barra superior arrastrable
         barra_top = tk.Frame(self.root, bg="#1b241e")
         barra_top.pack(fill="x", padx=4, pady=4)
         barra_top.bind("<Button-1>", self.iniciar_arrastre)
@@ -125,7 +124,6 @@ class PeonApp:
         btn_cerrar = tk.Button(barra_top, text="X", bg="#b71c1c", fg="white", bd=0, font=("Segoe UI", 9, "bold"), width=3, command=self.root.destroy)
         btn_cerrar.pack(side="right", padx=2)
 
-        # Texto del Peon
         self.lbl_mensaje = tk.Label(
             self.root,
             text="🪓 Peón: ¡Listo para trabajar! Pega tu API Key abajo y entra a jugar.",
@@ -134,7 +132,6 @@ class PeonApp:
         )
         self.lbl_mensaje.pack(fill="both", expand=True, padx=12, pady=6)
 
-        # Fila Rival de linea
         fila_rival = tk.Frame(self.root, bg="#121614")
         fila_rival.pack(fill="x", padx=10, pady=4)
 
@@ -146,7 +143,6 @@ class PeonApp:
         btn_rival = tk.Button(fila_rival, text="Fijar Rival", bg="#2e7d32", fg="white", bd=0, font=("Segoe UI", 9, "bold"), padx=10, pady=4, command=self.fijar_rival)
         btn_rival.pack(side="right")
 
-        # Fila API Key y Voz Clonada
         fila_api = tk.Frame(self.root, bg="#121614")
         fila_api.pack(fill="x", padx=10, pady=(4, 10))
 
@@ -235,7 +231,8 @@ class PeonApp:
 
         def _worker():
             try:
-                ultimas = list(self.historial_frases)[-8:]
-                memoria = " | ".join(ultimas) if ultimas else "ninguna"
+                memoria = " | ".join(self.historial_frases) if self.historial_frases else "ninguna"
                 rival_info = f"Tu rival directo en linea es {self.rival_linea}." if self.rival_linea else ""
                 
+                prompt = (
+                    f"Eres un Peon Orco renegon, sarcastico y explotado de Warcraft 3 que hace de companero y coach inmortal de Dota 2. "
