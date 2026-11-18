@@ -234,4 +234,3 @@ class PeonCerebro:
         skills_txt = ", ".join(skills_lista) if skills_lista else "ninguna"
 
         items_actuales = []
-        nuevo_item_comprado = None
