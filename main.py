@@ -234,5 +234,3 @@ class PeonApp:
                 memoria = " | ".join(self.historial_frases) if self.historial_frases else "ninguna"
                 rival_info = f"Tu rival directo en linea es {self.rival_linea}." if self.rival_linea else ""
                 
-                prompt = (
-                    f"Eres un Peon Orco renegon, sarcastico y explotado de Warcraft 3 que hace de companero y coach inmortal de Dota 2. "
