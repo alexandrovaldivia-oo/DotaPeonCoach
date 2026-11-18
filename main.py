@@ -156,7 +156,8 @@ class PeonCerebro:
 
         def _worker():
             try:
-                memoria = " | ".join(self.historial_frases[-8:]) if self.historial_frases else "ninguna"
+                ultimas = list(self.historial_frases)[-8:]
+                memoria = " | ".join(ultimas) if ultimas else "ninguna"
                 rival_info = f"Tu rival directo en linea es {self.rival_linea}." if self.rival_linea else ""
                 
                 prompt = (
@@ -164,7 +165,7 @@ class PeonCerebro:
                     f"Hablas con jerga dotera peruana/latina y puedes soltar lisuras o groserias graciosas (como carajo, mierda, huevadas, manco) "
                     f"cuando el jugador compra un item absurdo, muere por tonto o hace una jugada epica. "
                     f"REGLA OBLIGATORIA: Di SIEMPRE los nombres de habilidades y objetos en espanol natural de Dota, NUNCA nombres de codigo en ingles. "
-                    f"No repitas estas frases que ya dijiste: [{memoria}]. "
+                    f"No repitas estas frases que ya dijiste: ({memoria}). "
                     f"{rival_info} Responde en maximo 22 palabras, directo, expresivo y sin saludos: {situacion}"
                 )
 
@@ -234,4 +235,3 @@ class PeonCerebro:
 
         items_actuales = []
         nuevo_item_comprado = None
-        for slot, val in items.items():
